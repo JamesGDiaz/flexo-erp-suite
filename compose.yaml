@@ -1,0 +1,91 @@
+name: ${COMPOSE_PROJECT_NAME:-cutrdflexo-prod}
+
+services:
+  app:
+    image: ${CUTRDFLEXO_IMAGE:-git.roselabs.mx/roselabs/cutrdflexo}:${CUTRDFLEXO_VERSION:?Set CUTRDFLEXO_VERSION in .env, e.g. v0.5.0}
+    restart: unless-stopped
+    init: true
+
+    env_file:
+      - .env
+
+    # Deployment-owned settings. Keep these here so deployed containers always
+    # use the internal Compose network and the frontend files packaged in the image.
+    environment:
+      APP_ENV: production
+      HTTP_ADDR: ":5600"
+
+      VALKEY_ADDR: "valkey:6379"
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Set VALKEY_PASSWORD in .env}
+      VALKEY_DB: ${VALKEY_DB:-0}
+      VALKEY_TLS: "false"
+
+      SERVE_FRONTEND: "true"
+      STAFF_FRONTEND_DIR: "/app/frontend/staff/dist"
+      PORTAL_FRONTEND_DIR: "/app/frontend/portal/dist"
+
+    # Nginx on the host is expected to be the public entry point.
+    # Do not change this to 0.0.0.0 unless you intentionally want to expose
+    # the Go server directly to the network.
+    ports:
+      - "127.0.0.1:${APP_PORT:-5600}:5600"
+
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+    security_opt:
+      - no-new-privileges:true
+
+    networks:
+      - app
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  valkey:
+    image: valkey/valkey:9.1.2-alpine
+    restart: unless-stopped
+
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Set VALKEY_PASSWORD in .env}
+
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        exec valkey-server           --appendonly yes           --appendfsync everysec           --requirepass "$$VALKEY_PASSWORD"
+
+    volumes:
+      - valkey_data:/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'valkey-cli -a "$$VALKEY_PASSWORD" ping 2>/dev/null | grep -q PONG'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+    security_opt:
+      - no-new-privileges:true
+
+    networks:
+      - app
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  valkey_data:
+
+networks:
+  app:
+    driver: bridge
