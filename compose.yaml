@@ -5,10 +5,8 @@ services:
     image: ${CUTRDFLEXO_IMAGE:-git.roselabs.mx/roselabs/cutrdflexo}:${CUTRDFLEXO_VERSION:?Set CUTRDFLEXO_VERSION in .env, e.g. v0.5.0}
     restart: unless-stopped
     init: true
-
     env_file:
       - .env
-
     # Deployment-owned settings. Keep these here so deployed containers always
     # use the internal Compose network and the frontend files packaged in the image.
     environment:
@@ -29,17 +27,11 @@ services:
     # the Go server directly to the network.
     ports:
       - "127.0.0.1:${APP_PORT:-5600}:5600"
-
     depends_on:
       valkey:
         condition: service_healthy
-
-    security_opt:
-      - no-new-privileges:true
-
     networks:
       - app
-
     logging:
       driver: json-file
       options:
@@ -49,19 +41,15 @@ services:
   valkey:
     image: valkey/valkey:9.1.2-alpine
     restart: unless-stopped
-
     environment:
       VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Set VALKEY_PASSWORD in .env}
-
     command:
       - /bin/sh
       - -ec
       - |
         exec valkey-server           --appendonly yes           --appendfsync everysec           --requirepass "$$VALKEY_PASSWORD"
-
     volumes:
       - valkey_data:/data
-
     healthcheck:
       test:
         - CMD-SHELL
@@ -70,10 +58,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
-
     security_opt:
       - no-new-privileges:true
-
     networks:
       - app
 
