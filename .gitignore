@@ -1,7 +1,13 @@
 .env
 .env.*
 !.env.example
-
+!.env.staging.example
+installation.json
+certs/
+*.dump
+*.log
 *.bak
 *.swp
 .DS_Store
+config/
+installation/

@@ -2,36 +2,40 @@ name: ${COMPOSE_PROJECT_NAME:-cutrdflexo-prod}
 
 services:
   app:
-    image: ${CUTRDFLEXO_IMAGE:-git.roselabs.mx/roselabs/cutrdflexo}:${CUTRDFLEXO_VERSION:?Set CUTRDFLEXO_VERSION in .env, e.g. v0.5.0}
+    # Full tag or digest reference; no separate CUTRDFLEXO_VERSION variable.
+    image: ${CUTRDFLEXO_IMAGE:?Set CUTRDFLEXO_IMAGE to a published -ps/-nops tag or digest}
+    platform: linux/amd64
     restart: unless-stopped
     init: true
+    stop_grace_period: 30s
     env_file:
       - .env
-    # Deployment-owned settings. Keep these here so deployed containers always
-    # use the internal Compose network and the frontend files packaged in the image.
     environment:
       APP_ENV: production
       HTTP_ADDR: ":5600"
-
-      VALKEY_ADDR: "valkey:6379"
-      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Set VALKEY_PASSWORD in .env}
-      VALKEY_DB: ${VALKEY_DB:-0}
+      INSTALLATION_ID: ${INSTALLATION_ID:?Set the stable database-bound installation ID}
+      INSTALLATION_CONFIG_FILE: /app/config/installation.json
+      VALKEY_ADDR: valkey:6379
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Set VALKEY_PASSWORD}
+      VALKEY_DB: "0"
       VALKEY_TLS: "false"
-
+      SESSION_SECURE: "true"
       SERVE_FRONTEND: "true"
-      STAFF_FRONTEND_DIR: "/app/frontend/staff/dist"
-      PORTAL_FRONTEND_DIR: "/app/frontend/portal/dist"
-
-    # Nginx on the host is expected to be the public entry point.
-    # Do not change this to 0.0.0.0 unless you intentionally want to expose
-    # the Go server directly to the network.
+      STAFF_FRONTEND_DIR: /app/frontend/staff/dist
+      PORTAL_FRONTEND_DIR: /app/frontend/portal/dist
+    volumes:
+      - type: bind
+        source: ./installation.json
+        target: /app/config/installation.json
+        read_only: true
+        bind:
+          create_host_path: false
     ports:
       - "127.0.0.1:${APP_PORT:-5600}:5600"
     depends_on:
       valkey:
         condition: service_healthy
-    networks:
-      - app
+    networks: [app]
     logging:
       driver: json-file
       options:
@@ -39,30 +43,25 @@ services:
         max-file: "5"
 
   valkey:
-    image: valkey/valkey:9.1.2-alpine
+    image: ${VALKEY_IMAGE:-valkey/valkey:9.1.2-alpine}
     restart: unless-stopped
     environment:
-      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Set VALKEY_PASSWORD in .env}
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Set VALKEY_PASSWORD}
     command:
       - /bin/sh
       - -ec
       - |
-        exec valkey-server           --appendonly yes           --appendfsync everysec           --requirepass "$$VALKEY_PASSWORD"
+        exec valkey-server --appendonly yes --appendfsync everysec --requirepass "$$VALKEY_PASSWORD"
     volumes:
       - valkey_data:/data
     healthcheck:
-      test:
-        - CMD-SHELL
-        - 'valkey-cli -a "$$VALKEY_PASSWORD" ping 2>/dev/null | grep -q PONG'
+      test: [CMD-SHELL, 'valkey-cli -a "$$VALKEY_PASSWORD" ping 2>/dev/null | grep -q PONG']
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 5s
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - app
-
+    security_opt: [no-new-privileges:true]
+    networks: [app]
     logging:
       driver: json-file
       options:

@@ -1,0 +1,22 @@
+{
+  "displayName": "CutRDFlexo",
+  "localization": {
+    "language": "es",
+    "locale": "es-MX",
+    "currency": "USD",
+    "timezone": "America/Mexico_City"
+  },
+  "capabilities": {
+    "pricingSuggestions": true,
+    "customerPortal": true,
+    "machineManagement": true
+  },
+  "quotes": {
+    "orderPolicy": "single"
+  },
+  "integrations": {
+    "telegram": {
+      "enabled": false
+    }
+  }
+}

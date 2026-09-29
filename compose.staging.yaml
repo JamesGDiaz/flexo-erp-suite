@@ -1,0 +1,25 @@
+# Always include this override for staging, including provisioning/bootstrap.
+services:
+  app:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_TLS_MODE: none
+      TELEGRAM_BOT_TOKEN: ""
+    depends_on:
+      mailpit:
+        condition: service_started
+  mailpit:
+    image: ${MAILPIT_IMAGE:?Set MAILPIT_IMAGE to a pinned Mailpit image}
+    restart: unless-stopped
+    # No relay/forwarding settings and no public SMTP port.
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    networks: [app]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
